@@ -1,0 +1,28 @@
+node{
+    
+    def buildNumber = BUILD_NUMBER
+    stage("git clone"){
+        git url: 'https://github.com/chaithanya20/spring-boot-mongo-docker.git', branch: 'master'
+    }
+    stage("maven cleanpackage"){
+      def mavenHome =  tool name: "maven", type: "maven"
+      def mavenCMD = "${mavenHome}/bin/mvn"
+      sh "${mavenCMD} clean package" 
+    }
+ stage("build docker image"){
+     sh "docker build -t chaithanyap20/spring-boot-mongo-docker:${buildNumber} ."
+    }
+ stage("docker push") {   
+     withCredentials([string(credentialsId: 'docker_hub_pwd', variable: 'docker_hub_pwd')]) {
+         sh "docker login -u chaithanyap20 -p ${docker_hub_pwd}"
+     } 
+    sh "docker push chaithanyap20/spring-boot-mongo-docker:${buildNumber} "
+   }
+ stage("Deploy application as docker container in docker deployement server"){
+     sshagent(['docker_dev_server_SSH']) {
+         sh "ssh -o StrictHostKeyChecking=no ubuntu@3.134.253.121 docker rm -f springbootappcontainer || true"
+         sh "ssh -o StrictHostKeyChecking=no ubuntu@3.134.253.121 docker run -d -p 8080:8080 --name springbootappcontainer chaithanyap20/spring-boot-mongo-docker:${buildNumber}"
+        
+        }
+    }
+} 
